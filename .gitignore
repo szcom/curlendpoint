@@ -1,2 +1,9 @@
 build/
 debian/curlendpoint
+obj-x86_64-linux-gnu
+debian/tmp
+debian/files
+debian/debian/curlendpoint.*
+debian/curlendpoint-dev
+debian/curlendpoint.*
+debian/curlendpoint-dev.*

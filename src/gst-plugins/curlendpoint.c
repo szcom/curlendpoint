@@ -15,5 +15,5 @@ init (GstPlugin * plugin)
 GST_PLUGIN_DEFINE (GST_VERSION_MAJOR,
     GST_VERSION_MINOR,
     curlendpoint,
-    "Filter documentation",
+    "Curlhttpsink wrapper",
     init, VERSION, GST_LICENSE_UNKNOWN, "PACKAGE_NAME", "origin")

@@ -2,8 +2,8 @@
   "remoteClasses": [
     {
       "name": "curlendpoint",
-      "extends": "Filter",
-      "doc": "curlendpoint interface. Documentation about the module",
+      "extends": "UriEndpoint",
+      "doc": "curlendpoint interface. Wrapper around curlhttpsink element",
       "constructor": {
 	"doc": "Create an element",
 	"params": [
@@ -12,9 +12,48 @@
 	    "doc": "the parent :rom:cls:`MediaPipeline`",
 	    "type": "MediaPipeline",
 	    "final": true
-	  }
-	]
-      }
-    }
-  ]
+	  },
+          {
+              "name": "uri",
+              "doc": "URI where the recording will be stored. It has to be accessible to the KMS process.
+              <ul>
+                <li>Network resources: Must be accessible from the server where the media server is running.</li>
+              </ul>",
+              "type": "String"
+          }            
+       ]
+      },
+      "methods": [
+        {
+          "name": "curl",
+          "doc": "Starts storing media received through the sink pad.",
+          "params": []
+        }
+      ],
+      "events": [
+        "Recording",
+        "Paused",
+        "Stopped"
+      ]
+    }],
+    "events": [
+        {
+          "name": "Recording",
+          "extends": "Media",
+          "doc": "Fired when the recoding effectively starts. ie: Media is received by the recorder and record method has been called.",
+          "properties": []
+        },
+        {
+          "name": "Paused",
+          "extends": "Media",
+          "doc": "@deprecated</br>Fired when the recorder goes to pause state",
+          "properties": []
+        },
+        {
+          "name": "Stopped",
+          "extends": "Media",
+          "doc": "@deprecated</br>Fired when the recorder has been stopped and all the media has been written to storage.",
+          "properties": []
+        }
+    ]
 }

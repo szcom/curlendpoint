@@ -1,8 +1,7 @@
 #ifndef _GST_CURLENDPOINT_H_
 #define _GST_CURLENDPOINT_H_
 
-#include <gst/video/gstvideofilter.h>
-
+#include <kurento/commons/kmsuriendpoint.h>
 G_BEGIN_DECLS
 #define GST_TYPE_CURLENDPOINT   (gst_curlendpoint_get_type())
 #define GST_CURLENDPOINT(obj)   (G_TYPE_CHECK_INSTANCE_CAST((obj),GST_TYPE_CURLENDPOINT,Gstcurlendpoint))
@@ -15,13 +14,13 @@ typedef struct _GstcurlendpointPrivate GstcurlendpointPrivate;
 
 struct _Gstcurlendpoint
 {
-  GstVideoFilter base;
+  KmsUriEndpoint parent;
   GstcurlendpointPrivate *priv;
 };
 
 struct _GstcurlendpointClass
 {
-  GstVideoFilterClass base_curlendpoint_class;
+  KmsUriEndpointClass parent_class;
 };
 
 GType gst_curlendpoint_get_type (void);

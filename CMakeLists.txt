@@ -29,23 +29,31 @@ endif ()
 
 find_package(PkgConfig)
 
-set (GST_REQUIRED 1.5.0)
-set (GLIB_REQUIRED 2.38)
-set (OPENCV_REQUIRED 2.0.0)
+set (GST_REQUIRED ^1.5.0)
+set (GLIB_REQUIRED ^2.38)
+set (SOUP_REQUIRED ^2.40)
+set (NICE_REQUIRED ^0.1.13)
+set (GLIBMM_REQUIRED ^2.37)
 
 #gst-plugins dependencies
 pkg_check_modules(GSTREAMER REQUIRED gstreamer-1.5>=${GST_REQUIRED})
 pkg_check_modules(GSTREAMER_BASE REQUIRED gstreamer-base-1.5>=${GST_REQUIRED})
-pkg_check_modules(GSTREAMER_VIDEO REQUIRED gstreamer-video-1.5>=${GST_REQUIRED})
 pkg_check_modules(GSTREAMER_CHECK REQUIRED gstreamer-check-1.5>=${GST_REQUIRED})
+pkg_check_modules(GSTREAMER_RTP REQUIRED gstreamer-rtp-1.5>=${GST_REQUIRED})
 pkg_check_modules(KMSCORE REQUIRED kmscore)
-pkg_check_modules(OPENCV REQUIRED opencv>=${OPENCV_REQUIRED})
+pkg_check_modules(KMSELEMENTS REQUIRED kmselements)
 
 set (VERSION ${PROJECT_VERSION})
 set (PACKAGE ${PROJECT_NAME})
 set (GETTEXT_PACKAGE "curlendpoint")
 
 include(GNUInstallDirs)
+
+include (GenericFind)
+generic_find (LIBNAME Boost REQUIRED COMPONENTS unit_test_framework system )
+set (MANUAL_CHECK OFF CACHE BOOL "Tests will generate files")
+set (ENABLE_DEBUGGING_TESTS OFF CACHE BOOL "Enable test that are not yet stable")
+enable_testing()
 
 set (CMAKE_INSTALL_GST_PLUGINS_DIR ${CMAKE_INSTALL_LIBDIR}/gstreamer-1.5)
 set (KURENTO_MODULES_SO_DIR ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}/${KURENTO_MODULES_DIR_INSTALL_PREFIX})
@@ -61,3 +69,4 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 message(STATUS "Compiling : ${PROJECT_NAME}-${PROJECT_VERSION}")
 
 add_subdirectory (src)
+add_subdirectory(tests)

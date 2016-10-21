@@ -1,0 +1,294 @@
+/*
+ * (C) Copyright 2016 Kurento (http://kurento.org/)
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ */
+
+#define BOOST_TEST_STATIC_LINK
+#define BOOST_TEST_PROTECTED_VIRTUAL
+
+#include <boost/test/included/unit_test.hpp>
+#include <MediaPipelineImpl.hpp>
+#include <objects/curlendpointImpl.hpp>
+#include <mutex>
+#include <condition_variable>
+#include <ModuleManager.hpp>
+#include <MediaSet.hpp>
+
+#define DIR_TEMPLATE "/tmp/recoder_test_XXXXXX"
+
+using namespace kurento::module::curlendpoint;
+using namespace boost::unit_test;
+using namespace kurento;
+
+
+boost::property_tree::ptree config;
+std::string mediaPipelineId;
+ModuleManager moduleManager;
+
+#define EXPECTED_LEN 0.2
+static const int TIMEOUT = 5; /* seconds */
+
+struct GF {
+  GF();
+  ~GF();
+};
+
+BOOST_GLOBAL_FIXTURE (GF)
+
+GF::GF()
+{
+  boost::property_tree::ptree ac, audioCodecs, vc, videoCodecs;
+  gst_init (NULL, NULL);
+
+  moduleManager.loadModulesFromDirectories ("../src/server:../../..");
+
+  mediaPipelineId = moduleManager.getFactory ("MediaPipeline")->createObject (
+                      config, "",
+                      Json::Value() )->getId();
+}
+
+GF::~GF()
+{
+  MediaSet::deleteMediaSet();
+}
+
+std::string exec (const char *cmd)
+{
+  std::shared_ptr<FILE> pipe (popen (cmd, "r"), pclose);
+
+  if (!pipe) {
+    return "ERROR";
+  }
+
+  char buffer[128];
+  std::string result = "";
+
+  while (!feof (pipe.get() ) ) {
+    if (fgets (buffer, 128, pipe.get() ) != NULL) {
+      result += buffer;
+    }
+  }
+
+  return result;
+}
+
+static std::shared_ptr <curlendpointImpl>
+createcurlendpoint ()
+{
+  std::shared_ptr <kurento::MediaObjectImpl> recorderEndpoint;
+  Json::Value constructorParams;
+
+  constructorParams ["mediaPipeline"] = mediaPipelineId;
+  constructorParams ["uri"] = "http://192.168.0.19:8080/?callid=1&lang=en-US";
+  //constructorParams ["uri"] = "http://10.6.6.55:8080/?callid=1&lang=en-US";
+
+  recorderEndpoint = moduleManager.getFactory ("curlendpoint")->createObject (
+                       config, "",
+                       constructorParams );
+  auto ep = std::dynamic_pointer_cast <curlendpointImpl> (recorderEndpoint);
+  return ep;  
+}
+
+static void
+releasecurlendpoint (std::shared_ptr<curlendpointImpl> &ep)
+{
+  std::string id = ep->getId();
+
+  ep.reset();
+  MediaSet::getMediaSet ()->release (id);
+}
+
+static std::shared_ptr <MediaElementImpl>
+createTestSrc (void)
+{
+  std::shared_ptr <MediaElementImpl> src = std::dynamic_pointer_cast
+      <MediaElementImpl> (MediaSet::getMediaSet()->ref (new  MediaElementImpl (
+                            boost::property_tree::ptree(),
+                            MediaSet::getMediaSet()->getMediaObject (mediaPipelineId),
+                            "dummysrc") ) );
+
+  g_object_set (src->getGstreamerElement(), "audio", TRUE, "video", FALSE, NULL);
+  //g_object_set (src->getGstreamerElement(), "audio-freq", 160, NULL);
+
+  return std::dynamic_pointer_cast <MediaElementImpl> (src);
+}
+
+static void
+releaseTestSrc (std::shared_ptr<MediaElementImpl> &ep)
+{
+  std::string id = ep->getId();
+
+  ep.reset();
+  MediaSet::getMediaSet ()->release (id);
+}
+
+std::condition_variable cv;
+std::mutex mtx;
+std::atomic<bool> transited (false);
+
+static void
+set_state (std::shared_ptr <curlendpointImpl> recorder,
+           std::shared_ptr<UriEndpointState> next)
+{
+  std::shared_ptr<UriEndpointState> current = recorder->getState ();
+  std::unique_lock<std::mutex> lck (mtx);
+
+  BOOST_TEST_MESSAGE ("Setting recorder to state: " << next->getString() );
+
+  if (current->getValue () == next->getValue () ) {
+    BOOST_TEST_MESSAGE ("Recorder is already in state: " <<  current->getString() );
+    return;
+  }
+
+  switch (next->getValue() ) {
+  case UriEndpointState::STOP:
+    recorder->stop();
+    break;
+
+  case UriEndpointState::PAUSE:
+    recorder->pause();
+    break;
+
+  case UriEndpointState::START:
+    BOOST_TEST_MESSAGE ("Recorder is already in state: " <<  recorder->getUri() );
+    recorder->curl();
+    break;
+  }
+
+  /* Lets wait for asynchronous change of state */
+  if (!cv.wait_for (lck, std::chrono::seconds (TIMEOUT), [] () {
+  return transited.load();
+  }) ) {
+    BOOST_ERROR ("Timeout changing to state " << next->getString() );
+  }
+
+  transited.store (false);
+}
+
+static void
+recorder_state_changes ()
+{
+  BOOST_TEST_MESSAGE ("#################: " );
+  std::atomic<int> recording_changes (0);
+  std::atomic<int> pause_changes (0);
+  std::atomic<int> stop_changes (0);
+  std::atomic<int> start_changes (0);
+  
+  std::cout << "creating curl ep ..." << std::endl;
+
+  std::shared_ptr <curlendpointImpl> recorder = createcurlendpoint ();
+  std::cout << "created curl ep ..." << std::endl;
+
+  BOOST_TEST_MESSAGE ("#################: 2" );
+  std::shared_ptr <MediaElementImpl> src = createTestSrc();
+  BOOST_TEST_MESSAGE ("#################: 3" );
+
+  std::shared_ptr<UriEndpointState> start (new UriEndpointState (
+        UriEndpointState::START) );
+  std::shared_ptr<UriEndpointState> stop (new UriEndpointState (
+      UriEndpointState::STOP) );
+  std::shared_ptr<UriEndpointState> pause (new UriEndpointState (
+        UriEndpointState::PAUSE) );
+
+  recorder->signalUriEndpointStateChanged.connect ([&] (UriEndpointStateChanged
+  event) {
+    BOOST_TEST_MESSAGE ("Recorder transited to state: " <<
+                        event.getState()->getString() );
+
+    switch (event.getState()->getValue() ) {
+    case UriEndpointState::STOP:
+      stop_changes++;
+      break;
+
+    case UriEndpointState::PAUSE:
+      pause_changes++;
+      break;
+
+    case UriEndpointState::START:
+      start_changes++;
+      break;
+    }
+
+    transited.store (true);
+    cv.notify_one();
+  });
+
+  std::cout << "connecting ..." << std::endl;
+
+  src->connect (recorder, std::make_shared<MediaType>(MediaType::AUDIO));
+  // recorder->curl();
+
+  g_usleep (100000);
+
+  set_state (recorder, start);
+
+  g_usleep (10000000);
+
+  set_state (recorder, pause);
+  set_state (recorder, start);
+  set_state (recorder, start); /* No transition done */
+
+  g_usleep (100000);
+
+  releaseTestSrc (src);
+
+  std::string uri = recorder->getUri();
+
+  releasecurlendpoint (recorder);
+
+  std::string command = "ffprobe -i " + uri +
+                        " -show_format -v quiet | sed -n 's/duration=//p'";
+
+  std::string duration = exec (command.c_str() );
+  std::cout << duration << std::endl;
+
+  float dur = atof (duration.c_str() );
+  BOOST_WARN_GE (dur, EXPECTED_LEN * 0.8);
+  BOOST_WARN_LE (dur, EXPECTED_LEN * 1.2);
+
+  command = "ffprobe -i " + uri +
+            " -show_streams -v quiet | sed -n 's/codec_name=//p'";
+  std::string codecs = exec (command.c_str() );
+
+  BOOST_REQUIRE (codecs.find ("vp8") != std::string::npos);
+  BOOST_REQUIRE (codecs.find ("opus") != std::string::npos);
+
+  std::cout << "recording_changes: " << recording_changes << std::endl;
+  std::cout << "start_changes: " << start_changes << std::endl;
+  std::cout << "stop_changes: " << stop_changes << std::endl;
+  std::cout << "pause_changes: " << pause_changes << std::endl;
+
+  BOOST_CHECK_EQUAL (recording_changes, 7);
+  BOOST_CHECK_EQUAL (stop_changes, 1);
+  BOOST_CHECK_EQUAL (pause_changes, 7);
+
+  BOOST_CHECK_EQUAL (recording_changes, start_changes);
+
+  uri = uri.substr (sizeof ("file://") - 1);
+
+  if (remove (uri.c_str() ) != 0) {
+    BOOST_ERROR ("Error deleting tmp file");
+  }
+}
+
+test_suite *
+init_unit_test_suite ( int , char *[] )
+{
+  test_suite *test = BOOST_TEST_SUITE ( "curlendpoint" );
+
+  test->add (BOOST_TEST_CASE ( &recorder_state_changes ), 0, /* timeout */ 15);
+
+  return test;
+}

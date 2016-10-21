@@ -1,7 +1,7 @@
 Source: curlendpoint
 Section: utils
 Priority: optional
-Maintainer: Maintainer Name
+Maintainer: Loltel
 Build-Depends: debhelper (>= 8.0.0),
  cmake,
  pkg-config,
