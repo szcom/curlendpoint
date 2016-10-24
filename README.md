@@ -4,7 +4,9 @@ DISCLAIMER: hack!
 
 Kurent Recorder Endpoint can stream audio in mp4/wemb format over
 http. This is neat feture but I needed access to the raw samples
-without mp4 compression.
+without mp4 compression. Audio format being streamed is mono, 16 bits
+singed integers at 16kHz using little endian. Or in gstreamer caps
+terms: "audio/x-raw,channels=1,rate=16000,format=S16LE"
 
 Little experiment with modification of kmsdummysink resulted in poor
 audio quality with alot of drop outs and glitches. It has been put
