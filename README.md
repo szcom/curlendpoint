@@ -20,19 +20,19 @@ installed:
 * devscripts
 
 Run the docker with this folder mapped as a volume
--v /path/to/curl-endpoint:/curl-endpoint
+-v /path/to/curlendpoint:/curlendpoint
 
 Then attach to the docker container and build a deb package
 ```
 #cd /curl-endpoint
 #debuild -b
 ```
-The deb package is to be found at /path/to/curl-endpoint/curlendpoint_0.0.1~rc1_amd64.deb.
-It shoudl be installed on the image based on Kurento Media Server docker image.
+The deb package is to be found at /path/to/curlendpoint_0.0.1~rc1_amd64.deb.
+It shoudl be installed on the image based on Kurento Media Server(KMS) docker image.
 
 Alternatively one can build the module using cmake:
 ```
-#cd /curl-endpoint/curlendpoint/
+#cd /curlendpoint/
 #make build
 #cd build
 #cmake ..
@@ -44,4 +44,6 @@ Alternatively one can build the module using cmake:
 ```
 More details on how to generate java bindings can be found [here](http://doc-kurento.readthedocs.io/en/stable/mastering/develop_kurento_modules.html)
 
+#Misc
+Curlhttpsink expects 100-trying as response to its POST. Unfortunately AWS's ELB swallows them up. Returning 202 from the server resolves this issue. The package also includes G.711 payloader with minimum p-time set to 20ms. By default KMS uses 10ms packets for G.711 ignoring for now SDP's p-time attributes.
 
