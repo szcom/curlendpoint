@@ -24,11 +24,12 @@ Run the docker with this folder mapped as a volume
 
 Then attach to the docker container and build a deb package
 ```
-#cd /curl-endpoint
+#cd /curlendpoint
 #debuild -b
 ```
 The deb package is to be found at /path/to/curlendpoint_0.0.1~rc1_amd64.deb.
-It shoudl be installed on the image based on Kurento Media Server(KMS) docker image.
+It should be installed on the image based on Kurento Media Server(KMS) docker image.
+Also kurento-media-server-6.0-dev may be required ( as it was not tested w/o it) 
 
 Alternatively one can build the module using cmake:
 ```
