@@ -96,7 +96,7 @@ gst_rtp_pcmu_pay20_init (GstRtpPcmuPay20 * rtppcmupay)
   /* octet-per-sample is 1 for PCM */
   gst_rtp_base_audio_payload_set_sample_options (rtpbaseaudiopayload, 1);
   g_object_set (rtppcmupay, "min-ptime", DEFAULT_MIN_PTIME, NULL);
-
+  g_object_set (rtppcmupay, "max-ptime", DEFAULT_MIN_PTIME, NULL);
 }
 
 static gboolean
